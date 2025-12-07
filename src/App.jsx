@@ -20,6 +20,7 @@ import {
   Trash2,
   LogOut
 } from 'lucide-react';
+import logo from './assets/logo.jpg';
 
 // Import Firebase services
 import { getAllResources, addResource, updateResource, deleteResource } from './services/resourceService';
@@ -471,7 +472,8 @@ export default function App() {
                 <BookOpen size={20} />
               </div> */}
               <img 
-                src="/public/logo.jpg" 
+                // src="/public/logo.jpg" 
+                src={logo}
                 alt="KinderGems Logo" 
                 className="h-12 w-auto object-contain"
               />
