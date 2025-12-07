@@ -465,12 +465,17 @@ export default function App() {
       {/* Navigation */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between h-20">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+              {/* <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
                 <BookOpen size={20} />
-              </div>
-              <span className="font-bold text-xl tracking-tight text-indigo-900">KinderGems</span>
+              </div> */}
+              <img 
+                src="/public/logo.jpg" 
+                alt="KinderGems Logo" 
+                className="h-12 w-auto object-contain"
+              />
+              <span className="font-bold text-xl tracking-tight text-indigo-900">BEST</span>
               {isAdmin && (
                 <Badge color="green">
                   <Shield size={12} className="inline mr-1" />
@@ -481,9 +486,9 @@ export default function App() {
 
             {/* Desktop Nav */}
             <div className="hidden md:flex items-center space-x-4">
-              <a href="#" className="text-slate-600 hover:text-indigo-600 font-medium text-sm">Collections</a>
+              {/* <a href="#" className="text-slate-600 hover:text-indigo-600 font-medium text-sm">Collections</a>
               <a href="#" className="text-slate-600 hover:text-indigo-600 font-medium text-sm">About</a>
-              
+               */}
               {isAdmin ? (
                 <>
                   <button 
