@@ -13,11 +13,19 @@ import {
   Menu,
   Star,
   Filter,
-  Loader
+  Loader,
+  Lock,
+  Shield,
+  Edit,
+  Trash2,
+  LogOut
 } from 'lucide-react';
 
 // Import Firebase services
-import { getAllResources, addResource } from './services/resourceService';
+import { getAllResources, addResource, updateResource, deleteResource } from './services/resourceService';
+
+// Admin password - In production, use proper authentication!
+const ADMIN_PASSWORD = 'admin123'; // Change this to your secure password
 
 // --- COMPONENTS ---
 
@@ -36,11 +44,29 @@ const Badge = ({ children, color = 'blue' }) => {
   );
 };
 
-const ResourceCard = ({ resource }) => {
+const ResourceCard = ({ resource, isAdmin, onEdit, onDelete }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow duration-200 flex flex-col h-full">
-      <div className="h-32 bg-gradient-to-r from-indigo-50 to-blue-50 flex items-center justify-center">
+      <div className="h-32 bg-gradient-to-r from-indigo-50 to-blue-50 flex items-center justify-center relative">
         <SubjectIcon subject={resource.subject} size={48} className="text-indigo-200" />
+        {isAdmin && (
+          <div className="absolute top-2 right-2 flex gap-2">
+            <button
+              onClick={() => onEdit(resource)}
+              className="p-2 bg-white rounded-lg shadow-md hover:bg-blue-50 transition-colors"
+              title="Edit resource"
+            >
+              <Edit size={16} className="text-blue-600" />
+            </button>
+            <button
+              onClick={() => onDelete(resource)}
+              className="p-2 bg-white rounded-lg shadow-md hover:bg-red-50 transition-colors"
+              title="Delete resource"
+            >
+              <Trash2 size={16} className="text-red-600" />
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="p-5 flex flex-col flex-grow">
@@ -99,7 +125,72 @@ const getSubjectColor = (subject) => {
   }
 };
 
-const AddResourceModal = ({ isOpen, onClose, onAdd }) => {
+const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      onLogin();
+      setPassword('');
+      setError('');
+    } else {
+      setError('Incorrect password');
+      setPassword('');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+          <div className="flex items-center gap-2">
+            <Shield size={24} />
+            <h2 className="text-lg font-bold">Admin Login</h2>
+          </div>
+          <button onClick={onClose} className="text-white/80 hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Enter Admin Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+              <input 
+                type="password"
+                required
+                autoFocus
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Enter password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+            </div>
+            {error && (
+              <p className="mt-2 text-sm text-red-600">{error}</p>
+            )}
+          </div>
+
+          <button 
+            type="submit"
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors"
+          >
+            Login
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const ResourceFormModal = ({ isOpen, onClose, onSubmit, resource, isEditing }) => {
   const [formData, setFormData] = useState({
     title: '',
     subject: 'SEL',
@@ -110,6 +201,28 @@ const AddResourceModal = ({ isOpen, onClose, onAdd }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (resource && isEditing) {
+      setFormData({
+        title: resource.title || '',
+        subject: resource.subject || 'SEL',
+        type: resource.type || 'Worksheet',
+        url: resource.url || '',
+        description: resource.description || '',
+        tags: resource.tags ? resource.tags.join(', ') : ''
+      });
+    } else {
+      setFormData({
+        title: '',
+        subject: 'SEL',
+        type: 'Worksheet',
+        url: '',
+        description: '',
+        tags: ''
+      });
+    }
+  }, [resource, isEditing, isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
@@ -117,18 +230,17 @@ const AddResourceModal = ({ isOpen, onClose, onAdd }) => {
     setIsSubmitting(true);
     
     try {
-      const newResource = {
+      const resourceData = {
         ...formData,
         tags: formData.tags.split(',').map(t => t.trim()).filter(t => t),
-        likes: 0
+        likes: resource?.likes || 0
       };
       
-      await onAdd(newResource);
+      await onSubmit(resourceData, resource?.id);
       onClose();
-      setFormData({ title: '', subject: 'SEL', type: 'Worksheet', url: '', description: '', tags: '' });
     } catch (error) {
-      console.error('Error adding resource:', error);
-      alert('Failed to add resource. Please try again.');
+      console.error('Error submitting resource:', error);
+      alert('Failed to save resource. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -136,22 +248,24 @@ const AddResourceModal = ({ isOpen, onClose, onAdd }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h2 className="text-lg font-bold text-slate-800">Add New Resource</h2>
+          <h2 className="text-lg font-bold text-slate-800">
+            {isEditing ? 'Edit Resource' : 'Add New Resource'}
+          </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600" disabled={isSubmitting}>
             <X size={20} />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-grow">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
             <input 
               required
               disabled={isSubmitting}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-              placeholder="e.g. Fun Math Sheets"
+              placeholder="e.g. Fun SEL Activity"
               value={formData.title}
               onChange={e => setFormData({...formData, title: e.target.value})}
             />
@@ -234,10 +348,10 @@ const AddResourceModal = ({ isOpen, onClose, onAdd }) => {
             {isSubmitting ? (
               <>
                 <Loader className="animate-spin" size={16} />
-                Adding...
+                {isEditing ? 'Updating...' : 'Adding...'}
               </>
             ) : (
-              'Add Resource'
+              isEditing ? 'Update Resource' : 'Add Resource'
             )}
           </button>
         </form>
@@ -253,10 +367,13 @@ export default function App() {
   const [resources, setResources] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [editingResource, setEditingResource] = useState(null);
 
   // Load resources from Firebase on mount
   useEffect(() => {
@@ -288,23 +405,56 @@ export default function App() {
     });
   }, [resources, selectedSubject, searchQuery]);
 
-  const handleAddResource = async (newResourceData) => {
-    try {
-      // Add to Firebase
-      const docId = await addResource(newResourceData);
-      
-      // Update local state
-      setResources(prev => [{
-        id: docId,
-        ...newResourceData
-      }, ...prev]);
-      
-      // Show success message
-      alert('✅ Resource added successfully!');
-    } catch (error) {
-      console.error('Error adding resource:', error);
-      throw error; // Re-throw so the modal can handle it
+  const handleLogin = () => {
+    setIsAdmin(true);
+    setIsLoginModalOpen(false);
+    alert('✅ Admin access granted!');
+  };
+
+  const handleLogout = () => {
+    setIsAdmin(false);
+    alert('👋 Logged out of admin mode');
+  };
+
+  const handleAddResource = async (resourceData) => {
+    const docId = await addResource(resourceData);
+    setResources(prev => [{
+      id: docId,
+      ...resourceData
+    }, ...prev]);
+    alert('✅ Resource added successfully!');
+  };
+
+  const handleEditResource = async (resourceData, resourceId) => {
+    await updateResource(resourceId, resourceData);
+    setResources(prev => prev.map(r => 
+      r.id === resourceId ? { ...r, ...resourceData } : r
+    ));
+    setEditingResource(null);
+    alert('✅ Resource updated successfully!');
+  };
+
+  const handleDeleteResource = async (resource) => {
+    if (window.confirm(`Are you sure you want to delete "${resource.title}"?`)) {
+      try {
+        await deleteResource(resource.id);
+        setResources(prev => prev.filter(r => r.id !== resource.id));
+        alert('✅ Resource deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting resource:', error);
+        alert('Failed to delete resource. Please try again.');
+      }
     }
+  };
+
+  const openAddModal = () => {
+    setEditingResource(null);
+    setIsFormModalOpen(true);
+  };
+
+  const openEditModal = (resource) => {
+    setEditingResource(resource);
+    setIsFormModalOpen(true);
   };
 
   const subjects = ['All', 'SEL', 'Positive Discipline', 'Play-based Learning', 'Differentiated Instruction'];
@@ -320,20 +470,46 @@ export default function App() {
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
                 <BookOpen size={20} />
               </div>
-              <span className="font-bold text-xl tracking-tight text-indigo-900">BEST</span>
+              <span className="font-bold text-xl tracking-tight text-indigo-900">KinderGems</span>
+              {isAdmin && (
+                <Badge color="green">
+                  <Shield size={12} className="inline mr-1" />
+                  Admin
+                </Badge>
+              )}
             </div>
 
             {/* Desktop Nav */}
-            <div className="hidden md:flex items-center space-x-8">
+            <div className="hidden md:flex items-center space-x-4">
               <a href="#" className="text-slate-600 hover:text-indigo-600 font-medium text-sm">Collections</a>
               <a href="#" className="text-slate-600 hover:text-indigo-600 font-medium text-sm">About</a>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all"
-              >
-                <PlusCircle size={16} />
-                Add Resource
-              </button>
+              
+              {isAdmin ? (
+                <>
+                  <button 
+                    onClick={openAddModal}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all"
+                  >
+                    <PlusCircle size={16} />
+                    Add Resource
+                  </button>
+                  <button 
+                    onClick={handleLogout}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <button 
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all"
+                >
+                  <Lock size={16} />
+                  Admin Login
+                </button>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -350,13 +526,32 @@ export default function App() {
           <div className="md:hidden bg-white border-t border-slate-100 p-4 space-y-2">
             <a href="#" className="block px-3 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-md">Collections</a>
             <a href="#" className="block px-3 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-md">About</a>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="w-full mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-            >
-              <PlusCircle size={16} />
-              Add Resource
-            </button>
+            {isAdmin ? (
+              <>
+                <button 
+                  onClick={openAddModal}
+                  className="w-full mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <PlusCircle size={16} />
+                  Add Resource
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => setIsLoginModalOpen(true)}
+                className="w-full mt-4 bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <Lock size={16} />
+                Admin Login
+              </button>
+            )}
           </div>
         )}
       </nav>
@@ -370,12 +565,12 @@ export default function App() {
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           <h1 className="text-3xl sm:text-5xl font-extrabold mb-6 tracking-tight">
-            Bringing Educators Support & Training
+            Bringing Educators Support and Training
             <br />
-            {/* <span className="text-indigo-300">Less Effort, More Support</span> */}
+            <span className="text-indigo-300">Less Effort, More Support</span>
           </h1>
           <p className="text-indigo-100 text-lg sm:text-xl max-w-2xl mx-auto mb-10 font-light">
-            A self-paced training platform for teachers with less effort and more support
+            A collaborative collection of the best worksheets, videos, and games for kindergarten education. Organized for teachers, by teachers.
           </p>
 
           {/* Search Bar */}
@@ -386,7 +581,7 @@ export default function App() {
             <input
               type="text"
               className="block w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-white placeholder-indigo-300 focus:ring-2 focus:ring-white/50 focus:outline-none focus:bg-white/20 transition-all"
-              placeholder="Search for 'SEL', 'Play-based', or 'Positve Discipline'..."
+              placeholder="Search for 'SEL', 'discipline', or 'play-based'..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -444,7 +639,13 @@ export default function App() {
           filteredResources.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredResources.map(resource => (
-                <ResourceCard key={resource.id} resource={resource} />
+                <ResourceCard 
+                  key={resource.id} 
+                  resource={resource}
+                  isAdmin={isAdmin}
+                  onEdit={openEditModal}
+                  onDelete={handleDeleteResource}
+                />
               ))}
             </div>
           ) : (
@@ -466,10 +667,22 @@ export default function App() {
         </div>
       </footer>
 
-      <AddResourceModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onAdd={handleAddResource} 
+      {/* Modals */}
+      <AdminLoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
+        onLogin={handleLogin} 
+      />
+      
+      <ResourceFormModal 
+        isOpen={isFormModalOpen} 
+        onClose={() => {
+          setIsFormModalOpen(false);
+          setEditingResource(null);
+        }} 
+        onSubmit={editingResource ? handleEditResource : handleAddResource}
+        resource={editingResource}
+        isEditing={!!editingResource}
       />
     </div>
   );
