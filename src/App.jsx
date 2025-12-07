@@ -574,10 +574,10 @@ export default function App() {
           <h1 className="text-3xl sm:text-5xl font-extrabold mb-6 tracking-tight">
             Bringing Educators Support and Training
             <br />
-            <span className="text-indigo-300">Less Effort, More Support</span>
+            {/* <span className="text-indigo-300">Less Effort, More Support</span> */}
           </h1>
           <p className="text-indigo-100 text-lg sm:text-xl max-w-2xl mx-auto mb-10 font-light">
-            A collaborative collection of the best worksheets, videos, and games for kindergarten education. Organized for teachers, by teachers.
+            A self-paced training platform for teachers with less efort & more support.
           </p>
 
           {/* Search Bar */}
