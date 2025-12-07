@@ -531,8 +531,8 @@ export default function App() {
         {/* Mobile Nav Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-100 p-4 space-y-2">
-            <a href="#" className="block px-3 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-md">Collections</a>
-            <a href="#" className="block px-3 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-md">About</a>
+            {/* <a href="#" className="block px-3 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-md">Collections</a>
+            <a href="#" className="block px-3 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-md">About</a> */}
             {isAdmin ? (
               <>
                 <button 
