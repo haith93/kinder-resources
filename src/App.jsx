@@ -295,8 +295,10 @@ const ResourceFormModal = ({ isOpen, onClose, onSubmit, resource, isEditing }) =
                 value={formData.type}
                 onChange={e => setFormData({...formData, type: e.target.value})}
               >
-                <option>Worksheet</option>
+                <option>Recorded Workshop</option>
+                <option>Youtube Video</option>
                 <option>Video</option>
+                <option>Worksheet</option>
                 <option>Game</option>
                 <option>Activity</option>
                 <option>Article</option>
